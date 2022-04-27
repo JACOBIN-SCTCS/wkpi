@@ -12,25 +12,41 @@ import glob
 def main():
 
     # Check if we are working on the Collab Dataset
-    collab = True
-    if not collab:
+    collab = False
+    choice = 0
+    print("Enter the Dataset which you want to operate on")
+    print("1. MUTAG Protein Dataset")
+    print("2. Collab Input")
+    print("3. CSA Dataset")
+    ch = int(input())
+
+    if ch == 1: 
         pdiagram_path="mutagPD/"
         pimage_path="mutagPI/"
-    else:
+    elif ch==2:
+        collab=True
         pdiagram_path="collab_input/"
         pimage_path="collab_input/"
+    else:
+        pdiagram_path="iisc_csa_input/"
+        pimage_path="iisc_csa_input/"
 
-    files =[]
     # The Number of Data points 
     dataset_size = len(glob.glob1(pdiagram_path,"*_PD.pdg"))
+ 
 
-    if not collab:
+    if ch==1:
         # Get the list of all persistence diagrams with each element a numpy array containing the coordinates of the persistence points
         persistence_points = [np.loadtxt(pdiagram_path + str(i) + "_PD.pdg") for i in range(dataset_size)]
         # A numpy array storing the persistence images shape = Number of persistence images * Dimension of each persistence image vector.
         persistence_images = np.array([np.loadtxt(pimage_path + str(i) + "_PI.pdg") for i in range(dataset_size)])
-    else:
+        # Load the class labels as a numpy array of size equal to the number of data points
+        labels = np.loadtxt(pimage_path+"labels.txt")
+        labels = np.array([int(labels[i]) for i in range(dataset_size)])
+    
+    elif ch==2:
         # Working on a reduced set in the collab dataset
+        files =[]
         files = [i for i in range(1,1500)]
         files = files + [i  for i in range(2601,3102)]
         files = files + [i for i in range(3376,4000)]
@@ -39,11 +55,21 @@ def main():
         persistence_points = [np.loadtxt(pdiagram_path + str(i) + "_PD.pdg") for i in files]
         # A numpy array storing the persistence images shape = Number of persistence images * Dimension of each persistence image vector.
         persistence_images = np.array([np.loadtxt(pimage_path + str(i) + "_PI.pdg") for i in files])
+        # Load the class labels as a numpy array of size equal to the number of data points
+        labels = np.loadtxt(pimage_path+"labels.txt")
+        labels = np.array([int(labels[i]) for i in range(dataset_size)])[files]
+    
+    else:
+         # Get the list of all persistence diagrams with each element a numpy array containing the coordinates of the persistence points
+        persistence_points = [np.loadtxt(pdiagram_path + str(i) + "_PD.pdg") for i in range(1,dataset_size+1)]
+        # A numpy array storing the persistence images shape = Number of persistence images * Dimension of each persistence image vector.
+        persistence_images = np.array([np.loadtxt(pimage_path + str(i) + "_PI.pdg") for i in range(1,dataset_size+1)])
+        # Load the class labels as a numpy array of size equal to the number of data points
+        labels = np.loadtxt(pimage_path+"labels.txt")
+        labels = np.array([int(labels[i]) for i in range(dataset_size)])
     
 
-    # Load the class labels as a numpy array of size equal to the number of data points
-    labels = np.loadtxt(pimage_path+"labels.txt")
-    labels = np.array([int(labels[i]) for i in range(dataset_size)])[files]
+
     # Number of classes would be the number of unique labels assigned
     num_classes = len(set(labels.tolist()))
     # Get the persistence image coordinates as a numpy array
@@ -55,9 +81,8 @@ def main():
     sigma = 0.1  # The standard deviation of used while computing the kernel
     initial_gaussian_weights = [1.0]*k  #The initial guess for the weights given to each gaussian.
     initial_sigma_for_weights = [0.1]*k # The Standard deviation given ot each gaussian in the weight GMM
-    num_epochs=30   # The number of epochs to perform training
+    num_epochs=15  # The number of epochs to perform training
     learning_rate=0.999 # The size of the updates to be made in gradient descent.
-
 
     indices = np.arange(len(labels))
     # Use Sklearns train_test_split to split the dataset into training and testing
@@ -89,12 +114,11 @@ def main():
     labellist = [np.where(label_train==i)[0] for i in range(num_classes)]
     
     # Get the final weights,gaussian centers and sigma
-    weights,centers,sigma = train(pimages_train_normalized,coordinates,labellist,num_classes,weights,centers,sigma_for_weights,sigma,num_epochs=num_epochs,lr=learning_rate)
-
+    weights,centers,sigma_for_weight = train(pimages_train_normalized,coordinates,labellist,num_classes,weights,centers,sigma_for_weights,sigma,num_epochs=num_epochs,lr=learning_rate)
     #Initialize new WKPI with the parameters learned from training.     
     wkpi = WKPI(pimages_train_normalized, coordinates,labellist,num_classes)
     # Compute the weight of each persistence image cell
-    wkpi.computeWeight(weights,centers,sigma)
+    wkpi.computeWeight(weights,centers,sigma_for_weight)
     # Compute the train Gram Matrix
     train_gram_matrix = wkpi.GramMatrix(sigma)
     # Compute the test gram matrix which will be used by the SVM class in Sklearn
@@ -106,8 +130,8 @@ def main():
     # Find the labels which are predicted
     label_pred = clf.predict(test_gram_matrix)
     # Compute the accuracy of  the learned SVM Model.
-    result = accuracy_score(label_test, label_pred)
-    print("Accuracy = " + str(result))
+    result = accuracy_score(label_test, label_pred)*100.0
+    print("Accuracy = " + str(result)+"%")
 
 
 if __name__=="__main__":

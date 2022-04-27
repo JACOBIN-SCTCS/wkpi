@@ -69,20 +69,28 @@ class WKPI:
                         [1, 2, 4]])
                     >>> 
             '''
+            # Pth image pixel.
             pimage_ith_pixel = np.tile(self.pimages[:, i], (self.num_pimages, 1))
             
             # Compute the exponent on a pixel.
             expMatrix = np.exp(-(pimage_ith_pixel.T - pimage_ith_pixel) ** 2 / (kernel_sigma ** 2))
+            
+            # Append the ith pixel 
             expMatrixList.append(expMatrix)
 
             # Weight function for each pixel
             kernel += expMatrix * self.weight_func[i]
         
+        # Gram Matrix
         self.gram_matrix = kernel
+        # Each pixel w(ps)e^(-x_s + x^'_s) stored in the expMatrixList.
         self.expMatrixList = expMatrixList
+
         return self.gram_matrix
 
     def computeTestGramMatrix(self, pimages, sigma_for_kernel):
+        # Perform the same set of operations as done in the Gram Matrix 
+        # Computation but the entities used are different.
         test_num = pimages.shape[0]
         kernel = np.zeros((test_num,self.num_pimages))
         for i in range(self.coordinate_length):
@@ -149,21 +157,21 @@ class WKPI:
                 const = 2 - 2 * self.expMatrixList[j]
                 
                 # Compute the gradients inside the summation term
-                
                 gradient_metric_wi += self.weight_guassian_pixels[i][j] * const
                 gradient_metric_xi += self.weight_gaussian[i] * self.weight_guassian_pixels[i][j] * ((self.weight_gaussian_centers[i][0] - self.coordinates[j][0])) * (-2) * const / (self.weights_sigma[i] ** 2)
                 gradient_metric_yi += self.weight_gaussian[i] * self.weight_guassian_pixels[i][j] * ((self.weight_gaussian_centers[i][1] - self.coordinates[j][1])) * (-2) * const / (self.weights_sigma[i] ** 2)
                 gradient_metric_sigmai += self.weight_gaussian[i] * self.weight_guassian_pixels[i][j] * sum((self.coordinates[j] - self.weight_gaussian_centers[i]) ** 2) * 2 * const / (self.weights_sigma[i] ** 3)
            
             
+            # Summation over classes
             for j in range(self.num_classes):
                 gradient_wi += (np.sum(gradient_metric_wi[self.class_labels[j]][:, self.class_labels[j]]) * self.interclass[j] - np.sum(gradient_metric_wi[self.class_labels[j]]) * self.intraclass[j]) / self.interclass[j] ** 2
                 gradient_xi += (np.sum(gradient_metric_xi[self.class_labels[j]][:, self.class_labels[j]]) * self.interclass[j] - np.sum(gradient_metric_xi[self.class_labels[j]]) * self.intraclass[j]) / self.interclass[j] ** 2
                 gradient_yi += (np.sum(gradient_metric_yi[self.class_labels[j]][:, self.class_labels[j]]) * self.interclass[j] - np.sum(gradient_metric_yi[self.class_labels[j]]) * self.intraclass[j]) / self.interclass[j] ** 2
                 gradient_sigmai += (np.sum(gradient_metric_sigmai[self.class_labels[j]][:, self.class_labels[j]]) * self.interclass[j] - np.sum(gradient_metric_sigmai[self.class_labels[j]]) * self.intraclass[j]) / self.interclass[j] ** 2
             
-            
-            gradient_w.append(gradient_wi - 1 / np.exp(self.weight_gaussian[i]) * rate)
+            # Gradients
+            gradient_w.append(gradient_wi)
             gradient_x.append(gradient_xi)
             gradient_y.append(gradient_yi)
             gradient_sigma.append(gradient_sigmai)
@@ -199,7 +207,7 @@ def getCostandGradients(pimages,
 
 
 def train(piimages,coordinates,labels,num_classes,
-    gaussian_weights,gaussian_centers,sigma_for_weight,sigma_for_kernel,num_epochs=30,lr=0.999):
+    gaussian_weights,gaussian_centers,sigma_for_weight,sigma_for_kernel,num_epochs=1,lr=0.999):
     
     # Perform training for the specified number of epochs
     for e in range(num_epochs):
@@ -217,7 +225,7 @@ def train(piimages,coordinates,labels,num_classes,
         # Perform gradient descent over the standard deviation of each gaussian.
         sigma_for_weight -= lr*gradients[3]
         #print(sigma_for_weight)
-        print(newcost)
+        print("Epoch " + str(e) +" Cost = " +  str(newcost))
     # Return the final weights,gaussian centers and standard deviation for each gaussian after training.
     return (gaussian_weights,gaussian_centers,sigma_for_weight)
 
