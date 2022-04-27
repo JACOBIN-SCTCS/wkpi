@@ -1,3 +1,4 @@
+from copyreg import pickle
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.metrics import accuracy_score
@@ -115,6 +116,16 @@ def main():
     
     # Get the final weights,gaussian centers and sigma
     weights,centers,sigma_for_weight = train(pimages_train_normalized,coordinates,labellist,num_classes,weights,centers,sigma_for_weights,sigma,num_epochs=num_epochs,lr=learning_rate)
+    
+    # Save the model paramters
+    labellist_numpy = np.array(labellist,dtype='object')
+    np.save("saved_parameters/weights",weights)
+    np.save("saved_parameters/centers",centers)
+    np.save("saved_parameters/sigma_for_weight",sigma_for_weight)
+    np.save("saved_parameters/pimages_train",pimages_train_normalized)
+    np.save("saved_parameters/label_train",label_train)
+    np.save("saved_parameters/labellist",labellist_numpy,allow_pickle=True)
+
     #Initialize new WKPI with the parameters learned from training.     
     wkpi = WKPI(pimages_train_normalized, coordinates,labellist,num_classes)
     # Compute the weight of each persistence image cell
