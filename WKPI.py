@@ -1,50 +1,55 @@
-from cProfile import label
 from random import gauss
 import numpy as np
-import random
 
 class WKPI:
 
     def __init__(self,pimages,coordinates,class_labels,num_classes):
-        
-        self.pimages = pimages
-        self.num_pimages = pimages.shape[0]
-        self.coordinates = coordinates
-        self.coordinate_length = self.coordinates.shape[0]
-        self.class_labels = class_labels
-        self.num_classes = num_classes
+       
+        self.pimages = pimages              # A numpy array storing the persistence images
+        self.num_pimages = pimages.shape[0] # The number of persistence images.
+        self.coordinates = coordinates      # The coordinates of each persistence image cell.
+        self.coordinate_length = self.coordinates.shape[0]  # The number of dimensions when the persistence image is flattened.
+        self.class_labels = class_labels    # The class labels of each persistence image. Length is equal to the number of persistence images.
+        self.num_classes = num_classes      # The number of persistence image classes
 
-        self.weight_num_gaussian = 0
-        self.weight_gaussian = 0
-        self.weight_gaussian_centers = 0
-        self.weights_sigma = 0
-        self.weight_func = 0
-        self.weight_guassian_pixels = []
+        self.weight_num_gaussian = None     # Number of Guassian Mixtures in the GMM model determining weight.
+        self.weight_gaussian = None         # The weight assigned to each gaussian
+        self.weight_gaussian_centers = None # The center of each gaussian cell in (x,y) cooridnates
+        self.weights_sigma = None           # The variance values for each gaussian.
+        self.weight_func = None             # The weights assigned to each persistence image cell whose center point is given in coordinates.
+        self.weight_guassian_pixels = []    # The list containing list storing weight of each persistence image cell wrt the particular gaussian.
 
 
     def computeWeight(self, weights, centers, sigma_for_weight):
-        
-        #weights = np.array(weights)
-        #centers = np.array(centers)
-        #sigma_for_weight = np.array(sigma_for_weight)
-    
+
+        # The weighs assigned to each gaussian  
         self.weight_gaussian = weights
+        # The number of gaussians
         self.weight_num_gaussian = self.weight_gaussian.shape[0]
 
+        # The list containing the center of each gaussian in (x,y) coordinates
         self.weight_gaussian_centers = np.array(centers)
+        # The Standard deviation value assigned to each gaussian.
         self.weights_sigma = np.array(sigma_for_weight)
+        # Used to store the weight of each pixel according to the Gaussian Mixture Model sum(weight[i]*exp)
         self.weight_func = np.zeros((self.coordinate_length,1))
         self.weight_guassian_pixels =[]
 
         for i in range(self.weight_num_gaussian):
+            # Get the gaussian center
             center = self.weight_gaussian_centers[i,:]
+            # Repeat the the current gaussian centers to facilitate distance computation
+            # between the coordinates of the persistence image cell.
             centerCoordinate = np.tile(center, (self.coordinate_length, 1))
+            # Perform the exponential step as done in a GMM model
             gaussian = (np.exp(np.sum((self.coordinates - centerCoordinate) ** 2 / (- self.weights_sigma[i] ** 2), axis = 1))).reshape((self.coordinate_length,1))
-            #print(gaussian)
+            # The weight of each persistence image cell wrt ther current gaussian is appended.
             self.weight_guassian_pixels.append(gaussian)
+            # Multiply with the weight assigned to each gaussian.
             self.weight_func = self.weight_func + gaussian * self.weight_gaussian[i]
+        
+        # The list containing list storing weight of each persistence image cell wrt the particular gaussian.
         self.weight_guassian_pixels = np.array(self.weight_guassian_pixels)
-        #print(self.weight_func)
 
     def GramMatrix(self,kernel_sigma):
         
@@ -94,12 +99,14 @@ class WKPI:
         return kernel        
       
     def DistanceMetric(self):
+        # Compute the distance kw(PI_A,PI_A) + kw(PI_B,PI_B) - 2kw(PI_A,PI_B)
         self.distance = 2*np.sum(self.weight_func) - 2*self.gram_matrix
         return self.distance
     
     def computeCost(self):
-        
+        # Within class distance values
         self.intraclass = 0
+        # Summation of persistence image class wrt to
         self.interclass = 0
 
         intra_class_total_distance = [np.sum(self.distance[self.class_labels[i]][:,self.class_labels[i]]) for i in range(self.num_classes)]
@@ -171,30 +178,44 @@ def getCostandGradients(pimages,
     gaussian_weights,gaussian_centers,sigma_for_weight,sigma_for_kernel
     ):
 
+    # Initialize the WKPI kernel with Persistence images, the coordinates of
+    # each persistence image cell, labels and the number of classes.
     wkpi = WKPI(pimages,coordinates,labels,num_classes)
+    # Calculate the weight to be assigned to each persistence image cell.
     wkpi.computeWeight(gaussian_weights,gaussian_centers,sigma_for_weight)
+    # Compute the Kernel matrrix.
     wkpi.GramMatrix(sigma_for_kernel)
+    # Compute the distance metric using the formula mentioned in the paper.
     wkpi.DistanceMetric()
+    # Compute the cost which is intraclass distance/ total class distance
     cost = wkpi.computeCost()
+    # Compute the gradients
     gradients = wkpi.computeGradients()
-
+    # Return the cost and gradients for performing the gradient update rule.
     return cost,gradients
 
 
 def train(piimages,coordinates,labels,num_classes,
     gaussian_weights,gaussian_centers,sigma_for_weight,sigma_for_kernel,num_epochs=30,lr=0.999):
     
+    # Perform training for the specified number of epochs
     for e in range(num_epochs):
+        # Get the total cost and the gradients wrt weights, gaussian_center_coordinates,standard_deviation of each gaussian.
         newcost,gradients = getCostandGradients(piimages,coordinates,
             labels,num_classes,gaussian_weights,gaussian_centers,sigma_for_weight,sigma_for_kernel
         )
+
+        # Perform gradient descent over the weights.      
         gaussian_weights -= lr*gradients[0]
+        # Perform gradient descent over the x coordinate of the gaussian centers.  
         gaussian_centers[:,0] -= lr*gradients[1]
+        # Perform gradient descent over the y coordinate of the gaussian centers
         gaussian_centers[:,1] -= lr*gradients[2]
+        # Perform gradient descent over the standard deviation of each gaussian.
         sigma_for_weight -= lr*gradients[3]
         #print(sigma_for_weight)
         print(newcost)
-    
+    # Return the final weights,gaussian centers and standard deviation for each gaussian after training.
     return (gaussian_weights,gaussian_centers,sigma_for_weight)
 
 

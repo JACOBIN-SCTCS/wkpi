@@ -1,6 +1,3 @@
-from cgi import test
-from re import L
-import datasets
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.metrics import accuracy_score
@@ -11,46 +8,7 @@ import os
 from sklearn import preprocessing
 import glob
 
-
-'''piimages = np.array([[1.0,2.0],[2.0,3.0],[4.0,5.0],[1.0,2.0],[1.0,1.4]])
-coordinates = np.array([[1.0,2.0],[0.0,0.0]])
-center_gaussians= np.array([[1.0,1.0],[2.0,2.0]])
-weight_gaussian = np.array([1.9,1.0])
-sigma_for_weights = np.array([2.0,2.0])
-labelTrain = [0,0,0,1,1]
-num_classes = 2
-
-classes = [0,0,0,1,1]
-g = np.array(classes)
-print(g.shape)
-
-class_labels = [np.where(g==i)[0] for i in range(num_classes)]
-print(class_labels)
-
-#class_labels = [[0,1,2],[3,4]]
-#print(class_labels)
-wkpi = WKPI(piimages,coordinates,class_labels,num_classes)
-#wkpi.computeWeights(weight_gaussian,center_gaussians,sigma_for_weights)
-wkpi.computeWeight(weight_gaussian,center_gaussians,sigma_for_weights)
-
-#print(wkpi.GramMatrix(1))
-#print(wkpi.DistanceMetric())
-#print(wkpi.computeCost())
-#print(wkpi.computeGradients())
-
-
-
-
-
-getCostandGradients(piimages,coordinates,class_labels,num_classes,weight_gaussian,center_gaussians,sigma_for_weights,1)
-
-train(piimages,coordinates,class_labels,num_classes,weight_gaussian,center_gaussians,sigma_for_weights,1)
-
-'''
-#train(piimages,coordinates,class_labels,num_classes,weight_gaussian,center_gaussians,sigma_for_weights, 1
-#)
-
-def m():
+def main():
 
     # Check if we are working on the Collab Dataset
     collab = True
@@ -61,34 +19,41 @@ def m():
         pdiagram_path="collab_input/"
         pimage_path="collab_input/"
 
-
     files =[]
-    
     # The Number of Data points 
     dataset_size = len(glob.glob1(pdiagram_path,"*_PD.pdg"))
-    
-    
+
     if not collab:
+        # Get the list of all persistence diagrams with each element a numpy array containing the coordinates of the persistence points
         persistence_points = [np.loadtxt(pdiagram_path + str(i) + "_PD.pdg") for i in range(dataset_size)]
+        # A numpy array storing the persistence images shape = Number of persistence images * Dimension of each persistence image vector.
         persistence_images = np.array([np.loadtxt(pimage_path + str(i) + "_PI.pdg") for i in range(dataset_size)])
     else:
-        files = [i for i in range(1,2401)]
+        # Working on a reduced set in the collab dataset
+        files = [i for i in range(1,2001)]
         files = files + [i  for i in range(2601,3102)]
-        files = files + [i for i in range(3376,5000)]
+        files = files + [i for i in range(3376,4500)]
 
+        # Get the list of all persistence diagrams with each element a numpy array containing the coordinates of the persistence points
         persistence_points = [np.loadtxt(pdiagram_path + str(i) + "_PD.pdg") for i in files]
+        # A numpy array storing the persistence images shape = Number of persistence images * Dimension of each persistence image vector.
         persistence_images = np.array([np.loadtxt(pimage_path + str(i) + "_PI.pdg") for i in files])
     
-    print(persistence_images.shape)
-    
+
+    # Load the class labels as a numpy array of size equal to the number of data points
     labels = np.loadtxt(pimage_path+"labels.txt")
     labels = np.array([int(labels[i]) for i in range(dataset_size)])[files]
+    # Number of classes would be the number of unique labels assigned
     num_classes = len(set(labels.tolist()))
+    # Get the persistence image coordinates as a numpy array
+    # Array of dimensions 400*2 (400 is the number of persistence image cells)
     coordinates = np.loadtxt(pimage_path + "coordinates.txt")
-    print(coordinates.shape)
 
-    k = 3
-    sigma = 0.1
+    # HyperParameter which we can set 
+    k = 3        #The number of gaussians in the GMM concerning the weights
+    sigma = 0.1  # The standard deviation of each gaussian mixture in the GMM model.
+
+
 
     kf = StratifiedKFold(n_splits = 2, shuffle = True)
 
@@ -131,7 +96,7 @@ def m():
 
 
 if __name__=="__main__":
-    m()
+    main()
     
 
 
