@@ -1,5 +1,8 @@
 from random import gauss
 import numpy as np
+import matplotlib.pyplot as plt
+from scipy.interpolate import make_interp_spline
+
 
 class WKPI:
 
@@ -208,7 +211,9 @@ def getCostandGradients(pimages,
 
 def train(piimages,coordinates,labels,num_classes,
     gaussian_weights,gaussian_centers,sigma_for_weight,sigma_for_kernel,num_epochs=1,lr=0.999):
-    
+    epochs = []
+    costs = []
+
     # Perform training for the specified number of epochs
     for e in range(num_epochs):
         # Get the total cost and the gradients wrt weights, gaussian_center_coordinates,standard_deviation of each gaussian.
@@ -226,6 +231,12 @@ def train(piimages,coordinates,labels,num_classes,
         sigma_for_weight -= lr*gradients[3]
         #print(sigma_for_weight)
         print("Epoch " + str(e) +" Cost = " +  str(newcost))
+        epochs.append(e)
+        costs.append(newcost)
+    X_Y_Spline = make_interp_spline(epochs, costs)
+    X_ = np.linspace(min(epochs), max(epochs), 500)
+    Y_ = X_Y_Spline(X_)
+    plt.plot(X_,Y_,color='orange',linewidth=3)
     # Return the final weights,gaussian centers and standard deviation for each gaussian after training.
     return (gaussian_weights,gaussian_centers,sigma_for_weight)
 

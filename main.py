@@ -9,6 +9,7 @@ import os
 from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
 import glob
+import matplotlib.pyplot as plt
 
 def main():
 
@@ -143,7 +144,10 @@ def main():
     # Compute the accuracy of  the learned SVM Model.
     result = accuracy_score(label_test, label_pred)*100.0
     print("Accuracy = " + str(result)+"%")
-
+    plt.title("k= "+ str(k) + "\n Kernel Sigma = " + str(sigma) +"\n " + "Accuracy = " + str(result) + "%" )
+    plt.xlabel("Cost")
+    plt.ylabel("Epochs")
+    plt.show()
 
 if __name__=="__main__":
     main()
