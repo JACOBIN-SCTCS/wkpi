@@ -6,6 +6,7 @@ from sklearn.svm import SVC
 from WKPI import *
 import os
 from sklearn import preprocessing
+from sklearn.model_selection import train_test_split
 import glob
 
 def main():
@@ -30,9 +31,9 @@ def main():
         persistence_images = np.array([np.loadtxt(pimage_path + str(i) + "_PI.pdg") for i in range(dataset_size)])
     else:
         # Working on a reduced set in the collab dataset
-        files = [i for i in range(1,2001)]
+        files = [i for i in range(1,1500)]
         files = files + [i  for i in range(2601,3102)]
-        files = files + [i for i in range(3376,4500)]
+        files = files + [i for i in range(3376,4000)]
 
         # Get the list of all persistence diagrams with each element a numpy array containing the coordinates of the persistence points
         persistence_points = [np.loadtxt(pdiagram_path + str(i) + "_PD.pdg") for i in files]
@@ -51,48 +52,62 @@ def main():
 
     # HyperParameter which we can set 
     k = 3        #The number of gaussians in the GMM concerning the weights
-    sigma = 0.1  # The standard deviation of each gaussian mixture in the GMM model.
+    sigma = 0.1  # The standard deviation of used while computing the kernel
+    initial_gaussian_weights = [1.0]*k  #The initial guess for the weights given to each gaussian.
+    initial_sigma_for_weights = [0.1]*k # The Standard deviation given ot each gaussian in the weight GMM
+    num_epochs=30   # The number of epochs to perform training
+    learning_rate=0.999 # The size of the updates to be made in gradient descent.
 
 
+    indices = np.arange(len(labels))
+    # Use Sklearns train_test_split to split the dataset into training and testing
+    pimages_train, pimages_test,label_train,label_test,train_index,test_index  = train_test_split(persistence_images,labels,indices,test_size=0.33,shuffle=True,stratify=labels)
+    pdiagram_train = [persistence_points[e] for e in train_index.tolist()]
 
-    kf = StratifiedKFold(n_splits = 2, shuffle = True)
+    # Find the persistence diagram points used for training
+    # This will be used in finding the centers of the K gaussians. 
+    persistencePoints_train = []
+   
 
-    scoreList = []
+    for pdiagram in pdiagram_train:
+        persistencePoints_train = persistencePoints_train + pdiagram.tolist()
+   
+    
+    # Normalize the values in the persistence image
+    normalizer = preprocessing.Normalizer().fit(pimages_train) 
+    pimages_train_normalized = normalizer.transform(pimages_train)
+    pimages_test_normalized = normalizer.transform(pimages_test)
 
-    for train_index,test_index in kf.split(persistence_images,labels):
-        pimages_train,pimages_test = persistence_images[train_index],persistence_images[test_index]
-        label_train,label_test = labels[train_index], labels[test_index]
-        print(label_train.shape)
-        pdiagram_train = [persistence_points[e] for e in train_index.tolist()]
-        persistencePoints_train = []
+    # Perform K Means to get the intial guess of the k centers of the gaussian
+    kmeans = KMeans(n_clusters = k, random_state = 0).fit(persistencePoints_train)
+    centers = kmeans.cluster_centers_
+    # Random Initial weights for the gaussians
+    weights = np.array(initial_gaussian_weights)
+    # The standard deviation for each 
+    sigma_for_weights = np.array(initial_sigma_for_weights)
+    # Store the Labels of persistence images
+    labellist = [np.where(label_train==i)[0] for i in range(num_classes)]
+    
+    # Get the final weights,gaussian centers and sigma
+    weights,centers,sigma = train(pimages_train_normalized,coordinates,labellist,num_classes,weights,centers,sigma_for_weights,sigma,num_epochs=num_epochs,lr=learning_rate)
 
-        for pdiagram in pdiagram_train:
-            if pdiagram.shape[0]==1:
-                persistencePoints_train = persistencePoints_train + [pdiagram.tolist()]
-            else:
-                persistencePoints_train = persistencePoints_train + pdiagram.tolist()
-        normalizer = preprocessing.Normalizer().fit(pimages_train) 
-        pimages_train_normalized = normalizer.transform(pimages_train)
-        pimages_test_normalized = normalizer.transform(pimages_test)
-
-        kmeans = KMeans(n_clusters = k, random_state = 0).fit(persistencePoints_train)
-        centers = kmeans.cluster_centers_
-        weights = np.array([1.0]*k)
-        sigma_for_weights = np.array([0.1]*k)
-
-        labellist = [np.where(label_train==i)[0] for i in range(num_classes)]
-
-        weights,centers,sigma = train(pimages_train_normalized,coordinates,labellist,num_classes,weights,centers,sigma_for_weights,0.1)
-           
-        wkpi = WKPI(pimages_train_normalized, coordinates,labellist,num_classes)
-        wkpi.computeWeight(weights,centers,sigma)
-        train_gram_matrix = wkpi.GramMatrix(0.1)
-        test_gram_matrix = wkpi.computeTestGramMatrix(pimages_test_normalized ,0.1)
-        clf = SVC(kernel='precomputed')
-        clf.fit(train_gram_matrix,label_train)
-        label_pred = clf.predict(test_gram_matrix)
-        result = accuracy_score(label_test, label_pred)
-        print("Accuracy = " + str(result))
+    #Initialize new WKPI with the parameters learned from training.     
+    wkpi = WKPI(pimages_train_normalized, coordinates,labellist,num_classes)
+    # Compute the weight of each persistence image cell
+    wkpi.computeWeight(weights,centers,sigma)
+    # Compute the train Gram Matrix
+    train_gram_matrix = wkpi.GramMatrix(sigma)
+    # Compute the test gram matrix which will be used by the SVM class in Sklearn
+    test_gram_matrix = wkpi.computeTestGramMatrix(pimages_test_normalized ,sigma)
+    # Sklearn 
+    clf = SVC(kernel='precomputed')
+    # Fit the SVM based on the Gram Matrix supplied
+    clf.fit(train_gram_matrix,label_train)
+    # Find the labels which are predicted
+    label_pred = clf.predict(test_gram_matrix)
+    # Compute the accuracy of  the learned SVM Model.
+    result = accuracy_score(label_test, label_pred)
+    print("Accuracy = " + str(result))
 
 
 if __name__=="__main__":

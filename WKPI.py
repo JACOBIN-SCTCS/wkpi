@@ -83,10 +83,6 @@ class WKPI:
         return self.gram_matrix
 
     def computeTestGramMatrix(self, pimages, sigma_for_kernel):
-		# Compute the test Gram matrix for svm classifier
-		# pimage_2: The test persistence images
-		# sigma_for_kernel: sigma of kernels
-
         test_num = pimages.shape[0]
         kernel = np.zeros((test_num,self.num_pimages))
         for i in range(self.coordinate_length):
@@ -104,17 +100,24 @@ class WKPI:
         return self.distance
     
     def computeCost(self):
+        
         # Within class distance values
         self.intraclass = 0
         # Summation of persistence image class wrt to
         self.interclass = 0
 
+        # Find the distance of the point to all the points within the class
         intra_class_total_distance = [np.sum(self.distance[self.class_labels[i]][:,self.class_labels[i]]) for i in range(self.num_classes)]
+        # Find the distance of the point in the current class to all other points and sum over all class (Denominator term)
         inter_class_total_distance = [np.sum(self.distance[self.class_labels[i]]) for i in range(self.num_classes)]
+        
+        # Initialize interclass and intraclass distance
         self.interclass = inter_class_total_distance
         self.intraclass = intra_class_total_distance
-
+        
+        # Computing the cost metric as specified in the paper.
         cost = ((np.array(intra_class_total_distance))/np.array(inter_class_total_distance))
+        # Sum over all the classes.
         cost = np.sum(cost)
         return cost
 
