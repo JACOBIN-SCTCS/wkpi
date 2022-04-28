@@ -62,10 +62,13 @@ def main():
         labels = np.array([int(labels[i]) for i in range(dataset_size)])[files]
     
     else:
+        files = [i  for i in range(1,dataset_size+3)]
+        files.remove(10)
+        files.remove(22) 
          # Get the list of all persistence diagrams with each element a numpy array containing the coordinates of the persistence points
-        persistence_points = [np.loadtxt(pdiagram_path + str(i) + "_PD.pdg") for i in range(1,dataset_size+1)]
+        persistence_points = [np.loadtxt(pdiagram_path + str(i) + "_PD.pdg") for i in files]
         # A numpy array storing the persistence images shape = Number of persistence images * Dimension of each persistence image vector.
-        persistence_images = np.array([np.loadtxt(pimage_path + str(i) + "_PI.pdg") for i in range(1,dataset_size+1)])
+        persistence_images = np.array([np.loadtxt(pimage_path + str(i) + "_PI.pdg") for i in files])
         # Load the class labels as a numpy array of size equal to the number of data points
         labels = np.loadtxt(pimage_path+"labels.txt")
         labels = np.array([int(labels[i]) for i in range(dataset_size)])
@@ -80,11 +83,11 @@ def main():
 
     # HyperParameter which we can set 
     k = 3        #The number of gaussians in the GMM concerning the weights
-    sigma = 0.1  # The standard deviation of used while computing the kernel
+    sigma = 0.01  # The standard deviation of used while computing the kernel
     initial_gaussian_weights = [1.0]*k  #The initial guess for the weights given to each gaussian.
     initial_sigma_for_weights = [0.1]*k # The Standard deviation given ot each gaussian in the weight GMM
-    num_epochs=15  # The number of epochs to perform training
-    learning_rate=0.999 # The size of the updates to be made in gradient descent.
+    num_epochs=20  # The number of epochs to perform training
+    learning_rate=0.001 # The size of the updates to be made in gradient descent.
 
     indices = np.arange(len(labels))
     # Use Sklearns train_test_split to split the dataset into training and testing
